@@ -65,7 +65,7 @@ struct return_element
             if(ret.state == return_state::END)          \
                 break;                                  \
             else if(ret.state == return_state::VALID)   \
-                result.emplace_back(ret.value);         \
+                result.push_back(ret.value);            \
         }                                               \
                                                         \
         return result;                                  \
@@ -168,11 +168,13 @@ struct from_iterator_t
         curr = begin_iterator;
         end = end_iterator;
 
+#if 0
         std::cout << "{ Elements ";
         for(curr = begin; curr != end; )
             std::cout << *curr++ << ' ';
         std::cout << " }\n";
         curr = begin_iterator;
+#endif
     }
 
     return_element<T> give_next()
@@ -388,9 +390,7 @@ struct select_t
     PREV prev;
     std::function<U(T)> select_function;
 
-    // TODO: Remove!
     select_t() {}
-
     select_t(std::function<U(T)> c_select_function, PREV c_prev)
     {
         prev = c_prev;
@@ -421,7 +421,7 @@ struct select_t
     }
 
     where_t<U, select_t<T, U, PREV>>
-    where(std::function<bool(T)> c_where_function)
+    where(std::function<bool(U)> c_where_function)
     {
         return where_t<U, select_t<T, U, PREV>>(c_where_function, *this);
     }
@@ -438,7 +438,7 @@ struct select_t
         return skip_t<U, select_t<T, U, PREV>>(c_skip_amount, *this);
     }
 
-    CONVERSION_FUNCIONS(T);
+    CONVERSION_FUNCIONS(U);
 };
 
 template<typename T>
@@ -526,30 +526,20 @@ int main()
     }
 
     {
-        auto numbers = std::vector { 5, 4, 1, 3, 9, 8, 6, 7, 2, 0 };
-#if 0
-        auto strings = std::vector<std::string_view> { "zero", "one", "two", "three",
-                                                       "four", "five", "six", "seven",
-                                                       "eight", "nine" };
-#endif
-        auto result = from(numbers)
-            // .select<std::string_view>([&strings](auto x) { return strings[x]; });
-            ;
+        auto numbers = std::array { 5, 4, 1, 3, 9, 8, 6, 7, 2, 0 };
+        auto strings = std::array<std::string_view, 10> { "zero", "one", "two", "three",
+                                                          "four", "five", "six", "seven",
+                                                          "eight", "nine" };
 
-        return_element<int> ret;
-        do
-        {
-            ret = result.give_next();
-            if(ret.state == return_state::VALID)
-                std::cout << ret.value << "\n";
-        } while(ret.state != return_state::END);
-
-#if 0
         print_test_msg("", numbers.begin(), numbers.end());
-        print_with_message("Numbers mapped to strings ",
-                           result.begin(), result.end());
-#endif
 
+        auto result = from(numbers)
+            .select<std::string_view>([&strings](auto x) { return strings[x]; })
+            .where([](auto x) { return true; })
+            .to_vector();
+
+        print_with_message("Numbers mapped to strings: ",
+                           result.begin(), result.end());
     }
 
     return 0;
