@@ -4,26 +4,58 @@
 
 namespace detail
 {
+    enum struct query_node_type : unsigned short
+    {
+        NONE = 0,
+
+        SELECT = 1,
+        WHERE = 2,
+        SORT = 3,
+    };
+
     template<typename T, typename U>
     struct query_node
     {
-        union impl
+        query_node_type node_type;
+        std::function<U(T)> select_function;
+        std::function<bool(T)> where_function;
+        std::function<int(T, T)> sort_function;
+
+        size_t get_return_type_size()
         {
-            struct where
-            {
-                std::function<bool(T)> where_function;
-            };
+            return sizeof(U);
+        }
 
-            struct sort
-            {
-                std::function<int(T, T)> sort_function;
-            };
+#if 0
+        query_node()
+        {
+            this->node_type = query_node_type::NONE;
+        }
 
-            struct select
+        query_node(query_node const& other)
+        {
+            this->node_type = other.node_type;
+            switch(other.node_type)
             {
-                std::function<U(T)> select_function;
-            };
-        };
+                case query_node_type::SELECT:
+                    this->select_function = other.select_function;
+                    break;
+
+                case query_node_type::WHERE:
+                    this->where_function = other.where_function;
+                    break;
+
+                case query_node_type::SORT:
+                    this->sort_function = other.sort_function;
+                    break;
+
+                default:
+                    break;
+            }
+        }
+
+        ~query_node() { }
+#endif
     };
 
     template<typename T, typename U>
@@ -32,7 +64,7 @@ namespace detail
         T const* start;
         size_t len;
 
-        query_node<T, U> _[16];
+        std::vector<query_node<T, U>> _;
 
 #if 1
         std::function<bool(T)> where_function;
@@ -40,6 +72,12 @@ namespace detail
 #endif
 
         query(T const* start, size_t len);
+
+        query(const query&) = delete;
+        query& operator=(const query&) & = delete;
+
+        query(query&&) = default;
+        query& operator=(query&&) & = default;
 
         query<T, U> where(std::function<bool(T)> predicate);
         query<T, U> sort(std::function<int(T, T)> compare);
@@ -64,20 +102,34 @@ namespace detail
     {
         this->start = start;
         this->len = len;
+        this->_.reserve(16);
     }
 
     template<typename T, typename U>
     query<T, U> query<T, U>::where(std::function<bool(T)> predicate)
-    {        auto result = *this;
+    {
+        auto result = std::move(*this);
         result.where_function = predicate;
+
+        auto node = query_node<T, U> {};
+        node.node_type = query_node_type::WHERE;
+        node.where_function = predicate;
+
+        result._.push_back(node);
         return result;
     }
 
     template<typename T, typename U>
     query<T, U> query<T, U>::sort(std::function<int(T, T)> compare)
     {
-        auto result = *this;
+        auto result = std::move(*this);
         result.sort_function = compare;
+
+        auto node = query_node<T, U> {};
+        node.node_type = query_node_type::SORT;
+        node.sort_function = compare;
+
+        result._.push_back(node);
         return result;
     }
 
@@ -89,11 +141,28 @@ namespace detail
         ::std::vector<T> result;
         result.reserve(end - begin);
 
+#if 0
         for(auto i = begin; i != end; ++i)
         {
             if(where_function(*i))
                 result.push_back(*i);
         }
+#else
+        size_t max_size = size_t { 0 };
+        for(auto j : _)
+        {
+            max_size = std::max(max_size, j.get_return_type_size());
+        }
+        max_size = std::max(max_size, sizeof(T));
+        printf("max size is %lu\n", max_size);
+
+        unsigned char result_bytes[max_size];
+        for(auto i = begin; i != end; ++i)
+        {
+            if(where_function(*i))
+                result.push_back(*i);
+        }
+#endif
 
         std::sort(result.begin(), result.end(), sort_function);
         return result;
@@ -125,6 +194,10 @@ int main()
     for(auto v : test)
         printf("%d ", v);
     printf("\n");
+
+    auto test2 = from(int_ptr, 7)
+        .where([](int x) { return x % 2 == 0 && x > 0; })
+        .sort([](int x, int y) { return x >= y; });
 
     return 0;
 }
