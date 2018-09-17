@@ -49,7 +49,7 @@ struct return_element
             if(ret.state == return_state::END)          \
                 break;                                  \
             else if(ret.state == return_state::VALID)   \
-                result.emplace_back(ret.value);         \
+                result.push_back(ret.value);            \
         }                                               \
                                                         \
         return result;                                  \
@@ -165,8 +165,14 @@ struct from_iterator_t
     from_iterator_t(ITER begin_iterator, ITER end_iterator)
     {
         begin = begin_iterator;
-        curr = begin;
+        curr = begin_iterator;
         end = end_iterator;
+
+        std::cout << "{ Elements ";
+        for(curr = begin; curr != end; )
+            std::cout << *curr++ << ' ';
+        std::cout << " }\n";
+        curr = begin_iterator;
     }
 
     return_element<T> give_next()
@@ -174,7 +180,11 @@ struct from_iterator_t
         if(curr == end)
             return return_element<T>(return_state::END);
         else
-            return return_element<T>(return_state::VALID, *curr++);
+        {
+            auto res = *curr;
+            curr++;
+            return return_element<T>(return_state::VALID, res);
+        }
     }
 
     ///
@@ -460,36 +470,86 @@ template<typename ITERABLE>
 from_iterator_t<typename ITERABLE::value_type, typename ITERABLE::iterator>
 from(ITERABLE iterable)
 {
-    return from_iterator_t<typename ITERABLE::value_type, typename ITERABLE::iterator>(iterable.begin(), iterable.end());
+    return from_iterator_t<typename ITERABLE::value_type,
+                           typename ITERABLE::iterator>(
+                               iterable.begin(), iterable.end());
 }
+
+
+
+///////////////////////////////////////////////////////////////////
+
+static auto TEST_ID = 1;
+
+template<typename ITER>
+inline static void print_with_message(char const* msg, ITER begin, ITER end)
+{
+    std::cout << msg;
+    std::for_each(begin, end, [](auto x) { std::cout << x << ' '; });
+    std::cout << '\n';
+}
+
+template<typename ITER>
+inline static void print_test_msg(char const* msg, ITER begin, ITER end)
+{
+    std::cout << "\nTest" << TEST_ID++ << ": ";
+    print_with_message(msg, begin, end);
+}
+
+#include <string_view>
 
 int main()
 {
     {
         auto text = "MaTeUSz";
-        auto test = from(text, 7)
-            .select<int>([](auto x) { return static_cast<int>(x % 5); })
-            .where([](auto x) { return x % 2 == 0; })
-            .skip(2)
-            .take(3)
+        print_test_msg("", text, text + 7);
+
+        auto result = from(text, 7)
+            .where([](auto x) { return isupper(x); })
             .to_vector();
 
-        for(auto v : test)
-            printf("%d ", v);
-        printf("\n");
+        print_with_message("Upcase characters: ",
+                           result.begin(), result.end());
     }
 
     {
         auto numbers = std::array { 5, 4, 1, 3, 9, 8, 6, 7, 2, 0 };
+        print_test_msg("", numbers.begin(), numbers.end());
+
         auto result = from(numbers)
             .where([](auto x) { return x < 5; })
-            .to_vector()
+            .skip(1)
+            .to_vector();
+
+        print_with_message("Numbers < 5 (without the first one): ",
+                           result.begin(), result.end());
+    }
+
+    {
+        auto numbers = std::vector { 5, 4, 1, 3, 9, 8, 6, 7, 2, 0 };
+#if 0
+        auto strings = std::vector<std::string_view> { "zero", "one", "two", "three",
+                                                       "four", "five", "six", "seven",
+                                                       "eight", "nine" };
+#endif
+        auto result = from(numbers)
+            // .select<std::string_view>([&strings](auto x) { return strings[x]; });
             ;
 
-        std::cout << "Numbers < 5: ";
-        std::for_each(result.begin(), result.end(),
-                      [](auto x) { std::cout << x << ' '; });
-        std::cout << '\n';
+        return_element<int> ret;
+        do
+        {
+            ret = result.give_next();
+            if(ret.state == return_state::VALID)
+                std::cout << ret.value << "\n";
+        } while(ret.state != return_state::END);
+
+#if 0
+        print_test_msg("", numbers.begin(), numbers.end());
+        print_with_message("Numbers mapped to strings ",
+                           result.begin(), result.end());
+#endif
+
     }
 
     return 0;
