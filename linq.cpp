@@ -101,14 +101,25 @@ struct return_element
             else if(ret.state == return_state::VALID)                   \
                 result = func(result, ret.value);                       \
         }                                                               \
+    }                                                                   \
+                                                                        \
+    T sum()                                                             \
+    {                                                                   \
+        return fold_left<T>([](auto x, auto y) { return x + y; }, 0);   \
+    }                                                                   \
+                                                                        \
+    T multiply()                                                        \
+    {                                                                   \
+        return fold_left<T>([](auto x, auto y) { return x * y; }, 1);   \
     }
 
 
 template<typename T> struct from_t;
 template<typename T, typename PREV> struct where_t;
-template<typename T, typename U, typename PREV> struct select_t;
+template<typename T, typename PREV> struct sort_t;
 template<typename T, typename PREV> struct take_t;
 template<typename T, typename PREV> struct skip_t;
+template<typename T, typename U, typename PREV> struct select_t;
 
 #define LINQ_FUCTIONS(CURR_TYPE, TO_TYPE, PREVIOUS_TYPE)                \
     template<typename _U>                                               \
@@ -677,7 +688,7 @@ int main()
         auto result = from(numbers)
             .where([](auto x) { return x < 5; })
             .skip(1)
-            .fold_left<int>([](auto x, auto y) { return x + y; }, 0);
+            .sum();
 
         std::cout << "Sum of numbers < 5 (without the first one): " << result << "\n";
     }
