@@ -11,9 +11,8 @@ struct foobar
 
 enum struct return_state : unsigned char
 {
-    NONE = 0,
-    VALID = 1,
-    END = 2,
+    VALID,
+    END,
 };
 
 enum sort_method : unsigned char
@@ -76,7 +75,17 @@ struct return_element
         }                                               \
                                                         \
         return result;                                  \
+    }                                                   \
+                                                        \
+    bool any()                                          \
+    {                                                   \
+        auto ret = give_next();                         \
+        if(ret.state == return_state::END)              \
+            return false;                               \
+        else                                            \
+            return true;                                \
     }
+
 
 template<typename T> struct from_t;
 template<typename T, typename PREV> struct where_t;
@@ -560,24 +569,6 @@ from(T const* arr, std::size_t len)
     return from_raw_array_t(arr, len);
 }
 
-#if 0
-template<typename T, std::size_t N>
-from_iterator_t<T, typename std::array<T, N>::iterator>
-from(std::array<T, N> arr)
-{
-    return from_iterator_t<T, decltype(arr.begin())>(arr.begin(), arr.end());
-}
-#endif
-
-#if 0
-template<typename T>
-from_iterator_t<T, typename std::vector<T>::iterator>
-from(std::vector<T> vec)
-{
-    return from_iterator_t<T, decltype(vec.begin())>(vec.begin(), vec.end());
-}
-#endif
-
 template<typename ITERABLE>
 from_iterator_t<typename ITERABLE::value_type, typename ITERABLE::iterator>
 from(ITERABLE iterable)
@@ -587,11 +578,33 @@ from(ITERABLE iterable)
                                iterable.begin(), iterable.end());
 }
 
-
-
 ///////////////////////////////////////////////////////////////////
 
+namespace streaming {
 
+    template <typename T>
+    struct tag : std::reference_wrapper<T> {
+        using std::reference_wrapper<T>::reference_wrapper;
+    };
+
+    using tag_ostream = tag<std::ostream>;
+
+    template <typename T1, typename T2>
+    static inline tag_ostream operator<<(tag_ostream os, std::pair<T1, T2> const& p) {
+        os.get() << "{" << p.first << ", " << p.second  << "}";
+        return os;
+    }
+
+    template <typename Other>
+    static inline tag_ostream operator<<(tag_ostream os, Other const& o) {
+        os.get() << o;
+        return os;
+    }
+}
+
+using namespace streaming;
+
+//////////////////////////////////////////////////////////////////
 
 static auto TEST_ID = 1;
 
@@ -606,7 +619,7 @@ inline static void print_with_message(char const* msg, ITER begin, ITER end)
 template<typename ITER>
 inline static void print_test_msg(char const* msg, ITER begin, ITER end)
 {
-    std::cout << "\nTest" << TEST_ID++ << ": ";
+    std::cout << "\nTest " << TEST_ID++ << ": ";
     print_with_message(msg, begin, end);
 }
 
@@ -620,9 +633,10 @@ int main()
 
         auto result = from(text, 7)
             .where([](auto x) { return isupper(x); })
+            .sort([](auto x, auto y) { return x < y; })
             .to_vector();
 
-        print_with_message("Upcase characters: ",
+        print_with_message("Upcase characters (sorted):",
                            result.begin(), result.end());
     }
 
@@ -649,37 +663,55 @@ int main()
 
         auto result = from(numbers)
             .select<std::string_view>([&strings](auto x) { return strings[x]; })
-            .where([](auto x) { return true; })
+            .where([](auto) { return true; })
             .sort([](auto x, auto y) { return std::lexicographical_compare(x.begin(), x.end(),
                                                                            y.begin(), y.end()); })
-            .where([](auto x) { return true; })
+            .where([](auto) { return true; })
             .unique()
-            .where([](auto x) { return true; })
             .to_vector();
 
         print_with_message("Numbers mapped to strings (unique'd): ",
                            result.begin(), result.end());
     }
 
-#if 1
     {
         auto pairs = std::vector<std::pair<int, int>> { {1, 2}, {2, 0}, {1, 3}, {1, 4}, {1, -2} };
-        std::cout << "Stable sorted pairs: ";
-        for(auto v : pairs)
-            std::cout << "{ " << v.first << ", " << v.second << " } ";
-        std::cout << "\n";
+        print_test_msg("", pairs.begin(), pairs.end());
 
         auto result = from(pairs)
             .where([](auto x) { return x.first > 0; })
             .stable_sort([](auto x, auto y) { return x.first < y.first; })
             .to_vector();
 
-        std::cout << "Stable sorted pairs: ";
-        for(auto v : result)
-            std::cout << "{ " << v.first << ", " << v.second << " } ";
-        std::cout << "\n";
+        print_with_message("Stable sorted pairs with 1 as first: ",
+                           result.begin(), result.end());
     }
-#endif
+
+    {
+        auto words = std::vector<std::string> { "believe", "relief", "receipt", "field" };
+        print_test_msg("", words.begin(), words.end());
+
+        auto result = from(words)
+            .where([](auto x) { return x.find("ei") != std::string::npos; })
+            .any();
+
+        std::cout << "There is a word that contains in the list that contains 'ei': "
+                  << (result ? "true " : "false")
+                  << "\n";
+    }
+
+    {
+        auto words = std::vector<std::string> { "believe", "relief", "field" };
+        print_test_msg("", words.begin(), words.end());
+
+        auto result = from(words)
+            .where([](auto x) { return x.find("ei") != std::string::npos; })
+            .any();
+
+        std::cout << "There is a word that contains in the list that contains 'ei': "
+                  << (result ? "true " : "false")
+                  << "\n";
+    }
 
     return 0;
 }
