@@ -44,46 +44,63 @@ struct return_element
     }
 };
 
-#define CONVERSION_FUNCIONS(RET_TYPE)                   \
-    std::vector<RET_TYPE> to_vector()                   \
-    {                                                   \
-        auto result = std::vector<RET_TYPE>();          \
-        while(1)                                        \
-        {                                               \
-            auto ret = give_next();                     \
-                                                        \
-            if(ret.state == return_state::END)          \
-                break;                                  \
-            else if(ret.state == return_state::VALID)   \
-                result.push_back(ret.value);            \
-        }                                               \
-                                                        \
-        return result;                                  \
-    }                                                   \
-                                                        \
-    std::list<RET_TYPE> to_list()                       \
-    {                                                   \
-        auto result = std::list<RET_TYPE>();            \
-        while(1)                                        \
-        {                                               \
-            auto ret = give_next();                     \
-                                                        \
-            if(ret.state == return_state::END)          \
-                break;                                  \
-            else if(ret.state == return_state::VALID)   \
-                result.push_back(ret.value);            \
-        }                                               \
-                                                        \
-        return result;                                  \
-    }                                                   \
-                                                        \
-    bool any()                                          \
-    {                                                   \
-        auto ret = give_next();                         \
-        if(ret.state == return_state::END)              \
-            return false;                               \
-        else                                            \
-            return true;                                \
+#define CONVERSION_FUNCIONS(RET_TYPE)                                   \
+    std::vector<RET_TYPE> to_vector()                                   \
+    {                                                                   \
+        auto result = std::vector<RET_TYPE>();                          \
+        while(1)                                                        \
+        {                                                               \
+            auto ret = give_next();                                     \
+                                                                        \
+            if(ret.state == return_state::END)                          \
+                break;                                                  \
+            else if(ret.state == return_state::VALID)                   \
+                result.push_back(ret.value);                            \
+        }                                                               \
+                                                                        \
+        return result;                                                  \
+    }                                                                   \
+                                                                        \
+    std::list<RET_TYPE> to_list()                                       \
+    {                                                                   \
+        auto result = std::list<RET_TYPE>();                            \
+        while(1)                                                        \
+        {                                                               \
+            auto ret = give_next();                                     \
+                                                                        \
+            if(ret.state == return_state::END)                          \
+                break;                                                  \
+            else if(ret.state == return_state::VALID)                   \
+                result.push_back(ret.value);                            \
+        }                                                               \
+                                                                        \
+        return result;                                                  \
+    }                                                                   \
+                                                                        \
+    bool any()                                                          \
+    {                                                                   \
+        auto ret = give_next();                                         \
+        if(ret.state == return_state::END)                              \
+            return false;                                               \
+        else                                                            \
+            return true;                                                \
+    }                                                                   \
+                                                                        \
+    template<typename FOLD_LEFT_RESULT__T>                              \
+    FOLD_LEFT_RESULT__T fold_left(                                      \
+        std::function<FOLD_LEFT_RESULT__T(FOLD_LEFT_RESULT__T,T)> func, \
+        FOLD_LEFT_RESULT__T start_value)                                \
+    {                                                                   \
+        auto result = start_value;                                      \
+        while(1)                                                        \
+        {                                                               \
+            auto ret = give_next();                                     \
+                                                                        \
+            if(ret.state == return_state::END)                          \
+                return result;                                          \
+            else if(ret.state == return_state::VALID)                   \
+                result = func(result, ret.value);                       \
+        }                                                               \
     }
 
 
@@ -654,6 +671,18 @@ int main()
     }
 
     {
+        auto numbers = std::array { 5, 4, 1, 3, 9, 8, 6, 7, 2, 0 };
+        print_test_msg("", numbers.begin(), numbers.end());
+
+        auto result = from(numbers)
+            .where([](auto x) { return x < 5; })
+            .skip(1)
+            .fold_left<int>([](auto x, auto y) { return x + y; }, 0);
+
+        std::cout << "Sum of numbers < 5 (without the first one): " << result << "\n";
+    }
+
+    {
         auto numbers = std::vector { 5, 4, 1, 3, 9, 8, 6, 7, 2, 1, 2, 4, 0 };
         auto strings = std::vector<std::string_view> { "zero", "one", "two", "three",
                                                        "four", "five", "six", "seven",
@@ -670,7 +699,7 @@ int main()
             .unique()
             .to_vector();
 
-        print_with_message("Numbers mapped to strings (unique'd): ",
+        print_with_message("Numbers mapped to strings (sorted alphabetically and unique'd): ",
                            result.begin(), result.end());
     }
 
