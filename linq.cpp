@@ -111,6 +111,20 @@ struct return_element
     T multiply()                                                        \
     {                                                                   \
         return fold_left<T>([](auto x, auto y) { return x * y; }, 1);   \
+    }                                                                   \
+                                                                        \
+    template<typename FUNC>                                             \
+    void for_each(FUNC func)                                            \
+    {                                                                   \
+        while(1)                                                        \
+        {                                                               \
+            auto ret = give_next();                                     \
+                                                                        \
+            if(ret.state == return_state::END)                          \
+                return;                                                 \
+            else if(ret.state == return_state::VALID)                   \
+                func(ret.value);                                        \
+        }                                                               \
     }
 
 
@@ -149,6 +163,7 @@ template<typename T, typename U, typename PREV> struct select_t;
         return skip_t<CURR_TYPE, PREVIOUS_TYPE>(amount, *this);         \
     }
 
+#if 0
 template<typename T>
 struct from_raw_array_t
 {
@@ -173,30 +188,47 @@ struct from_raw_array_t
     }
 
     ///
-    template<typename U>
-    select_t<T, U, from_raw_array_t<T>>
-    select(std::function<U(T)> c_select_function)
-    {
-        return select_t<T, U, from_raw_array_t<T>>(c_select_function, *this);
-    }
+    template<typename SELECT_TYPE>
+    select_t<T, SELECT_TYPE, from_raw_array_t<T>>
+    select(std::function<SELECT_TYPE(T)> c_select_function)
+        {
+            return select_t<T, SELECT_TYPE, from_raw_array_t<T>>(c_select_function, *this);
+        }
 
-    where_t<T, from_raw_array_t<T>> where(std::function<bool(T)> c_where_function)
-    {
-        return where_t<T, from_raw_array_t<T>>(c_where_function, *this);
-    }
+        where_t<T, from_raw_array_t<T>> where(std::function<bool(T)> c_where_function)
+        {
+            return where_t<T, from_raw_array_t<T>>(c_where_function, *this);
+        }
 
-    take_t<T, from_raw_array_t<T>> take(size_t c_take_amount)
-    {
-        return take_t<T, from_raw_array_t<T>>(c_take_amount, *this);
-    }
+            take_t<T, from_raw_array_t<T>> take(size_t c_take_amount)
+        {
+            return take_t<T, from_raw_array_t<T>>(c_take_amount, *this);
+        }
 
-    skip_t<T, from_raw_array_t<T>> skip(size_t c_take_amount)
-    {
-        return skip_t<T, from_raw_array_t<T>>(c_take_amount, *this);
-    }
+            skip_t<T, from_raw_array_t<T>> skip(size_t c_take_amount)
+        {
+            return skip_t<T, from_raw_array_t<T>>(c_take_amount, *this);
+        }
+
+            sort_t<T, from_raw_array_t<T>> sort(std::function<int(T, T)> c_sort_function)
+        {
+            return sort_t<T, from_raw_array_t<T>>(c_sort_function, sort_method::DEFAULT, *this);
+        }
+
+            sort_t<T, from_raw_array_t<T>> stable_sort(std::function<int(T, T)> c_sort_function)
+        {
+            return sort_t<T, from_raw_array_t<T>>(c_sort_function, sort_method::STABLE, *this);
+        }
+
+            sort_t<T, from_raw_array_t<T>> unique()
+        {
+            return sort_t<T, from_raw_array_t<T>>(*this);
+        }
 
     CONVERSION_FUNCIONS(T);
 };
+
+#endif
 
 template<typename T, typename ITER>
 struct from_iterator_t
@@ -211,14 +243,6 @@ struct from_iterator_t
         begin = begin_iterator;
         curr = begin_iterator;
         end = end_iterator;
-
-#if 0
-        std::cout << "{ Elements ";
-        for(curr = begin; curr != end; )
-            std::cout << *curr++ << ' ';
-        std::cout << " }\n";
-        curr = begin_iterator;
-#endif
     }
 
     return_element<T> give_next()
@@ -376,42 +400,42 @@ struct where_t
         }
     }
 
-    template<typename U>
-    select_t<T, U, where_t<T, PREV>>
-    select(std::function<U(T)> c_select_function)
-    {
-        return select_t<T, U, where_t<T, PREV>>(c_select_function, *this);
-    }
+    template<typename SELECT_TYPE>
+    select_t<T, SELECT_TYPE, where_t<T, PREV>>
+    select(std::function<SELECT_TYPE(T)> c_select_function)
+        {
+            return select_t<T, SELECT_TYPE, where_t<T, PREV>>(c_select_function, *this);
+        }
 
     where_t<T, where_t<T, PREV>> where(std::function<bool(T)> c_where_function)
-    {
-        return where_t<T, where_t<T, PREV>>(c_where_function, *this);
-    }
+        {
+            return where_t<T, where_t<T, PREV>>(c_where_function, *this);
+        }
 
     take_t<T, where_t<T, PREV>> take(size_t c_take_amount)
-    {
-        return take_t<T, where_t<T, PREV>>(c_take_amount, *this);
-    }
+        {
+            return take_t<T, where_t<T, PREV>>(c_take_amount, *this);
+        }
 
     skip_t<T, where_t<T, PREV>> skip(size_t c_take_amount)
-    {
-        return skip_t<T, where_t<T, PREV>>(c_take_amount, *this);
-    }
+        {
+            return skip_t<T, where_t<T, PREV>>(c_take_amount, *this);
+        }
 
     sort_t<T, where_t<T, PREV>> sort(std::function<int(T, T)> c_sort_function)
-    {
-        return sort_t<T, where_t<T, PREV>>(c_sort_function, sort_method::DEFAULT, *this);
-    }
+        {
+            return sort_t<T, where_t<T, PREV>>(c_sort_function, sort_method::DEFAULT, *this);
+        }
 
     sort_t<T, where_t<T, PREV>> stable_sort(std::function<int(T, T)> c_sort_function)
-    {
-        return sort_t<T, where_t<T, PREV>>(c_sort_function, sort_method::STABLE, *this);
-    }
+        {
+            return sort_t<T, where_t<T, PREV>>(c_sort_function, sort_method::STABLE, *this);
+        }
 
     sort_t<T, where_t<T, PREV>> unique()
-    {
-        return sort_t<T, where_t<T, PREV>>(*this);
-    }
+        {
+            return sort_t<T, where_t<T, PREV>>(*this);
+        }
 
     CONVERSION_FUNCIONS(T);
 };
@@ -590,12 +614,15 @@ struct select_t
     CONVERSION_FUNCIONS(U);
 };
 
+#if 0
 template<typename T>
 from_raw_array_t<T>
 from(T const* arr, std::size_t len)
 {
     return from_raw_array_t(arr, len);
 }
+
+#endif
 
 template<typename ITERABLE>
 from_iterator_t<typename ITERABLE::value_type, typename ITERABLE::iterator>
@@ -655,11 +682,12 @@ inline static void print_test_msg(char const* msg, ITER begin, ITER end)
 
 int main()
 {
+#if 0
     {
         auto text = "MaTeUSz";
         print_test_msg("", text, text + 7);
 
-        auto result = from(text, 7)
+        auto result = from(text, text + 7)
             .where([](auto x) { return isupper(x); })
             .sort([](auto x, auto y) { return x < y; })
             .to_vector();
@@ -667,6 +695,7 @@ int main()
         print_with_message("Upcase characters (sorted):",
                            result.begin(), result.end());
     }
+#endif
 
     {
         auto numbers = std::array { 5, 4, 1, 3, 9, 8, 6, 7, 2, 0 };
@@ -751,6 +780,17 @@ int main()
         std::cout << "There is a word that contains in the list that contains 'ei': "
                   << (result ? "true " : "false")
                   << "\n";
+    }
+
+    {
+        auto numbers = std::array { 5, 4, 1, 3, 9, 8, 6, 7, 2, 0 };
+        print_test_msg("", numbers.begin(), numbers.end());
+
+        std::cout << "All numbers x4, hex formatted: ";
+        from(numbers)
+            .select<int>([](auto x) { return 4 * x; })
+            .for_each([](auto x) { std::cout << std::hex << x << ' '; });
+        std::cout << '\n';
     }
 
     return 0;
