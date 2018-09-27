@@ -2,7 +2,7 @@
 
 # Some linq-like query library for c++, for practice. Work in progres.
 
-```
+```cpp
 auto pairs = std::vector<std::pair<int, int>>
 {
     {1, 2},
